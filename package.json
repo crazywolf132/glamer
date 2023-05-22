@@ -1,0 +1,34 @@
+{
+  "name": "glamer",
+  "version": "1.0.0",
+  "description": "React Native styling as json",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "react-native",
+    "react",
+    "native",
+    "style",
+    "json",
+    "styling"
+  ],
+  "author": "crazywolf132",
+  "license": "ISC",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.6",
+    "@types/react-native": "^0.72.0",
+    "tsup": "^6.7.0",
+    "typescript": "^5.0.4"
+  }
+}
