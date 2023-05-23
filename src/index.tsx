@@ -1,7 +1,7 @@
-import React, { useMemo, ComponentType } from 'react';
+import React, { useMemo, ComponentType, ForwardedRef } from 'react';
 import {
-    ActivityIndicator, Button, DatePickerIOS, DrawerLayoutAndroid, FlatList, Image,
-    ImageBackground, KeyboardAvoidingView, Modal, Pressable, ProgressBarAndroid,
+    ActivityIndicator, Button, DrawerLayoutAndroid, FlatList, Image,
+    ImageBackground, KeyboardAvoidingView, Modal, Pressable,
     RefreshControl, SafeAreaView, ScrollView, SectionList, Slider,
     Switch, Text, TextInput, TouchableHighlight, TouchableOpacity, View, VirtualizedList,
     ViewStyle, TextStyle, ImageStyle, StyleProp
@@ -9,11 +9,9 @@ import {
 import useWidth from './useWidth';
 import type { ComponentPropsWithoutRef } from 'react';
 
-// Define components map
 const components = {
     ActivityIndicator,
     Button,
-    DatePickerIOS,
     DrawerLayoutAndroid,
     FlatList,
     Image,
@@ -21,7 +19,6 @@ const components = {
     KeyboardAvoidingView,
     Modal,
     Pressable,
-    ProgressBarAndroid,
     RefreshControl,
     SafeAreaView,
     ScrollView,
@@ -40,73 +37,72 @@ type ComponentKeys = keyof typeof components;
 
 type Style = ViewStyle & TextStyle & ImageStyle;
 
-// Interface for each theme part
 interface ThemePart {
-    base?: Style;
-    focused?: Style;
-    pressed?: Style;
+    [key: string]: Style | undefined;
+    variants?: { [key: string]: Style };
 }
 
-// Interface for the whole theme
-type ThemeDefinition<T extends ComponentKeys> = {
-    [key: string]: ThemePart & {
-        _: T;
-    };
+interface ThemeDefinition {
+    [K: string]: {
+        _: ComponentKeys | ComponentType<any>;
+    } & ThemePart;
 }
 
-type ComponentPropsMap = {
-    [K in ComponentKeys]: ComponentPropsWithoutRef<typeof components[K]> & { focused?: boolean, pressed?: boolean, style?: StyleProp<Style>, width?: 1 | 2 | 3 | 4, usingLayout?: boolean };
+type BaseProps<T> = T extends ComponentKeys
+    ? ComponentPropsWithoutRef<typeof components[T]>
+    : T extends ComponentType<infer P> ? P : never;
+
+type ConditionalProps<T extends keyof any> = {
+    [P in T as `is${Capitalize<string & P>}`]?: boolean;
+} & {
+    variant?: keyof ThemePart['variants'];
+    style?: StyleProp<Style>;
+    width?: 1 | 2 | 3 | 4;
+    usingLayout?: boolean;
 };
 
-type Result<T extends ComponentKeys> = {
-    [K in keyof ThemeDefinition<T>]: React.FC<ComponentPropsMap[ThemeDefinition<T>[K]['_']]>;
+type ComponentPropsMap<T> = BaseProps<T> & ConditionalProps<Exclude<keyof ThemePart, 'variants'>>;
+
+type Result = {
+    [K in keyof ThemeDefinition]: React.FC<ComponentPropsMap<ThemeDefinition[K]['_']> & { ref?: ForwardedRef<any> }>;
 };
 
-// The main function
-const Style = <T extends ComponentKeys, TD extends ThemeDefinition<T>>(theme: TD): Result<T> => {
+const Style = (theme: ThemeDefinition): Result => {
     const output: any = {};
 
-    // Loop through each theme
     for (const key in theme) {
-        const {
-            _,
-            base = {},
-            focused = {},
-            pressed = {},
-        } = theme[key];
+        const componentStyles = theme[key];
+        const Component: ComponentType<any> = typeof componentStyles._ === 'string' ? components[componentStyles._ as keyof typeof components] : componentStyles._;
 
-        const Component: ComponentType<any> = components[_];
-
-        // Create a new component
-        output[key] = (props: ComponentPropsMap[typeof _]) => {
-
-            // Combine styles, only recomputed when necessary
+        output[key] = React.forwardRef((props: ComponentPropsMap<typeof componentStyles._>, ref: ForwardedRef<any>) => {
             const finalStyle = useMemo(() => {
-                let style = { ...base };
-                if (props.focused && focused) {
-                    style = { ...style, ...focused };
+                let style = { ...componentStyles.base as Style };
+
+                for (const styleKey in componentStyles) {
+                    if (styleKey !== '_' && styleKey !== 'base' && styleKey !== 'variants' && props[`is${styleKey.charAt(0).toUpperCase() + styleKey.slice(1)}`]) {
+                        style = { ...style, ...(componentStyles[styleKey] as Style) };
+                    }
                 }
-                if (props.pressed && pressed) {
-                    style = { ...style, ...pressed };
+
+                if (props.variant && componentStyles.variants && componentStyles.variants[props.variant]) {
+                    style = { ...style, ...(componentStyles.variants[props.variant] as Style) };
                 }
+
                 if (props.style) {
-                    style = { ...style, ...props.style as any }
+                    style = { ...style, ...props.style as any };
                 }
                 if (props.usingLayout) {
-                    style = { ...style, ...useWidth(props) }
+                    style = { ...style, ...useWidth(props) };
                 }
                 return style;
-            }, [props.focused, props.pressed, props.style]);
+            }, [props, componentStyles]);
 
-            // Pass all initial props and override with the calculated style
             const allProps = { ...props, style: props.style ? [props.style, finalStyle] as StyleProp<Style> : finalStyle };
 
-            return <Component {...allProps} />;
-        };
-
+            return <Component ref={ref} {...allProps} />;
+        });
     }
-    return output as Result<T>;
+    return output as Result;
 };
-
 
 export { Style };

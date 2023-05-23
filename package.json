@@ -1,6 +1,6 @@
 {
   "name": "glamerful",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "React Native styling as json",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
